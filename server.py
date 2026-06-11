@@ -71,13 +71,16 @@ def download():
 
     cmd = [YTDLP, "--newline", "--no-playlist"]
 
+    # Target ≤480p — more than enough for a 600×600 display and much faster to download
+    RES_FILTER = "bestvideo[height<=480]"
+
     if fmt == "mp3":
         cmd += ["-x", "--audio-format", "mp3"]
     elif fmt == "mp4":
-        cmd += ["-f", "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best",
+        cmd += ["-f", f"{RES_FILTER}[ext=mp4]+bestaudio[ext=m4a]/{RES_FILTER}+bestaudio/best[height<=480]/best",
                 "--merge-output-format", "mp4"]
     else:
-        cmd += ["-f", "bestvideo+bestaudio/best"]
+        cmd += ["-f", f"{RES_FILTER}+bestaudio/best[height<=480]/best"]
 
     out_tmpl = os.path.join(out_dir, "%(title)s.%(ext)s")
     cmd += ["-o", out_tmpl, url]
