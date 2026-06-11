@@ -1,0 +1,667 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>YTDL — Video Downloader</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600&family=Bebas+Neue&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:        #080808;
+    --surface:   #111111;
+    --border:    #222222;
+    --border-hi: #333333;
+    --amber:     #f0a500;
+    --amber-dim: #7a5200;
+    --amber-glow:rgba(240,165,0,0.08);
+    --green:     #22c55e;
+    --red:       #ef4444;
+    --muted:     #555555;
+    --text:      #e8e0d0;
+    --text-dim:  #888880;
+    --mono:      'IBM Plex Mono', monospace;
+    --display:   'Bebas Neue', sans-serif;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    height: 100%;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 13px;
+    line-height: 1.6;
+    overflow-x: hidden;
+  }
+
+  /* Noise texture overlay */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0.6;
+  }
+
+  /* Scanlines */
+  body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0,0,0,0.03) 2px,
+      rgba(0,0,0,0.03) 4px
+    );
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .page {
+    position: relative;
+    z-index: 1;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 20px;
+  }
+
+  /* ── Header ─────────────────────────────── */
+  .header {
+    text-align: center;
+    margin-bottom: 48px;
+    animation: fadeDown 0.6s ease both;
+  }
+
+  .header-eyebrow {
+    font-size: 10px;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    color: var(--amber);
+    margin-bottom: 8px;
+    opacity: 0.8;
+  }
+
+  .header-title {
+    font-family: var(--display);
+    font-size: clamp(56px, 10vw, 96px);
+    letter-spacing: 0.04em;
+    line-height: 0.9;
+    color: var(--text);
+    position: relative;
+  }
+
+  .header-title span {
+    color: var(--amber);
+  }
+
+  .header-sub {
+    margin-top: 12px;
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 0.1em;
+  }
+
+  /* ── Card ────────────────────────────────── */
+  .card {
+    width: 100%;
+    max-width: 640px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    position: relative;
+    animation: fadeUp 0.6s 0.15s ease both;
+  }
+
+  .card::before {
+    content: '';
+    position: absolute;
+    top: -1px; left: -1px; right: -1px;
+    height: 2px;
+    background: var(--amber);
+  }
+
+  /* corner decorations */
+  .card::after {
+    content: '';
+    position: absolute;
+    bottom: -1px; right: -1px;
+    width: 12px; height: 12px;
+    border-right: 2px solid var(--amber);
+    border-bottom: 2px solid var(--amber);
+  }
+
+  .card-inner {
+    padding: 32px;
+  }
+
+  /* ── Section label ───────────────────────── */
+  .section-label {
+    font-size: 9px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--amber);
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .section-label::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  /* ── Inputs ──────────────────────────────── */
+  .field {
+    margin-bottom: 24px;
+  }
+
+  .field label {
+    display: block;
+    font-size: 10px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-bottom: 8px;
+  }
+
+  .input-wrap {
+    position: relative;
+  }
+
+  .input-prefix {
+    position: absolute;
+    left: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--amber-dim);
+    font-size: 12px;
+    pointer-events: none;
+    user-select: none;
+  }
+
+  input[type="text"] {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 13px;
+    padding: 12px 14px 12px 32px;
+    outline: none;
+    transition: border-color 0.15s, box-shadow 0.15s;
+    letter-spacing: 0.02em;
+  }
+
+  input[type="text"]::placeholder {
+    color: var(--muted);
+    opacity: 0.5;
+  }
+
+  input[type="text"]:focus {
+    border-color: var(--amber-dim);
+    box-shadow: 0 0 0 1px var(--amber-dim), inset 0 0 20px var(--amber-glow);
+  }
+
+  /* ── Format selector ─────────────────────── */
+  .format-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+  }
+
+  .format-opt {
+    position: relative;
+  }
+
+  .format-opt input[type="radio"] {
+    position: absolute;
+    opacity: 0;
+    width: 0; height: 0;
+  }
+
+  .format-opt label {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    padding: 14px 8px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    cursor: pointer;
+    transition: border-color 0.15s, background 0.15s;
+    text-transform: none;
+    letter-spacing: 0;
+    text-align: center;
+  }
+
+  .format-opt label .fmt-icon {
+    font-size: 18px;
+    line-height: 1;
+  }
+
+  .format-opt label .fmt-name {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .format-opt label .fmt-desc {
+    font-size: 9px;
+    color: var(--muted);
+    letter-spacing: 0.05em;
+  }
+
+  .format-opt input[type="radio"]:checked + label {
+    border-color: var(--amber);
+    background: var(--amber-glow);
+  }
+
+  .format-opt input[type="radio"]:checked + label .fmt-name {
+    color: var(--amber);
+  }
+
+  .format-opt label:hover {
+    border-color: var(--border-hi);
+  }
+
+  /* ── Button ──────────────────────────────── */
+  .btn-row {
+    margin-top: 28px;
+  }
+
+  .btn-download {
+    width: 100%;
+    background: var(--amber);
+    color: #000;
+    border: none;
+    font-family: var(--display);
+    font-size: 22px;
+    letter-spacing: 0.08em;
+    padding: 16px 24px;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+    transition: transform 0.1s, background 0.15s;
+  }
+
+  .btn-download::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: rgba(255,255,255,0.15);
+    transform: translateX(-100%) skewX(-15deg);
+    transition: transform 0.4s ease;
+  }
+
+  .btn-download:hover::before {
+    transform: translateX(120%) skewX(-15deg);
+  }
+
+  .btn-download:hover {
+    background: #ffc233;
+  }
+
+  .btn-download:active {
+    transform: scale(0.99);
+  }
+
+  .btn-download:disabled {
+    background: var(--border-hi);
+    color: var(--muted);
+    cursor: not-allowed;
+  }
+
+  .btn-download:disabled::before { display: none; }
+
+  /* ── Progress bar ────────────────────────── */
+  .progress-section {
+    margin-top: 28px;
+    display: none;
+  }
+
+  .progress-section.visible {
+    display: block;
+  }
+
+  .progress-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+  }
+
+  .progress-status {
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    color: var(--text-dim);
+  }
+
+  .progress-pct {
+    font-size: 10px;
+    color: var(--amber);
+    font-weight: 600;
+  }
+
+  .progress-track {
+    width: 100%;
+    height: 3px;
+    background: var(--border);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .progress-fill {
+    height: 100%;
+    background: var(--amber);
+    width: 0%;
+    transition: width 0.3s ease;
+    position: relative;
+  }
+
+  .progress-fill::after {
+    content: '';
+    position: absolute;
+    right: 0; top: 0; bottom: 0;
+    width: 40px;
+    background: linear-gradient(to right, transparent, rgba(255,255,255,0.4));
+  }
+
+  /* Indeterminate shimmer */
+  @keyframes shimmer {
+    0%   { transform: translateX(-100%); }
+    100% { transform: translateX(400%); }
+  }
+
+  .progress-fill.indeterminate {
+    width: 25% !important;
+    animation: shimmer 1.4s ease-in-out infinite;
+  }
+
+  /* ── Log output ──────────────────────────── */
+  .log-section {
+    margin-top: 20px;
+    display: none;
+  }
+
+  .log-section.visible {
+    display: block;
+  }
+
+  .log-box {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    padding: 12px 14px;
+    font-size: 11px;
+    line-height: 1.8;
+    color: var(--text-dim);
+    max-height: 180px;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border-hi) transparent;
+  }
+
+  .log-line { display: block; }
+  .log-line.success { color: var(--green); }
+  .log-line.error   { color: var(--red); }
+  .log-line.info    { color: var(--amber); }
+
+  /* ── Footer ──────────────────────────────── */
+  .footer {
+    margin-top: 32px;
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 0.1em;
+    text-align: center;
+    animation: fadeUp 0.6s 0.3s ease both;
+  }
+
+  .footer a {
+    color: var(--amber-dim);
+    text-decoration: none;
+  }
+
+  /* ── Animations ──────────────────────────── */
+  @keyframes fadeDown {
+    from { opacity: 0; transform: translateY(-16px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(16px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* Cursor blink on active input */
+  @keyframes blink {
+    0%, 100% { opacity: 1; }
+    50%       { opacity: 0; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <header class="header">
+    <div class="header-eyebrow">// local downloader</div>
+    <h1 class="header-title">YT<span>DL</span></h1>
+    <p class="header-sub">paste url &nbsp;·&nbsp; pick format &nbsp;·&nbsp; pull</p>
+  </header>
+
+  <div class="card">
+    <div class="card-inner">
+
+      <!-- URL -->
+      <div class="field">
+        <div class="section-label">source</div>
+        <label for="url-input">Video URL</label>
+        <div class="input-wrap">
+          <span class="input-prefix">▶</span>
+          <input type="text" id="url-input"
+            placeholder="https://www.youtube.com/watch?v=..."
+            autocomplete="off" spellcheck="false">
+        </div>
+      </div>
+
+      <!-- Output dir -->
+      <div class="field">
+        <label for="dir-input">Output Directory <span style="color:var(--muted)">(optional)</span></label>
+        <div class="input-wrap">
+          <span class="input-prefix">~</span>
+          <input type="text" id="dir-input"
+            placeholder="/Users/you/Downloads"
+            autocomplete="off" spellcheck="false">
+        </div>
+      </div>
+
+      <!-- Format -->
+      <div class="field">
+        <div class="section-label">format</div>
+        <div class="format-grid">
+          <div class="format-opt">
+            <input type="radio" name="format" id="fmt-best" value="best" checked>
+            <label for="fmt-best">
+              <span class="fmt-icon">◈</span>
+              <span class="fmt-name">Best</span>
+              <span class="fmt-desc">highest quality</span>
+            </label>
+          </div>
+          <div class="format-opt">
+            <input type="radio" name="format" id="fmt-mp4" value="mp4">
+            <label for="fmt-mp4">
+              <span class="fmt-icon">▣</span>
+              <span class="fmt-name">MP4</span>
+              <span class="fmt-desc">video / h.264</span>
+            </label>
+          </div>
+          <div class="format-opt">
+            <input type="radio" name="format" id="fmt-mp3" value="mp3">
+            <label for="fmt-mp3">
+              <span class="fmt-icon">♫</span>
+              <span class="fmt-name">MP3</span>
+              <span class="fmt-desc">audio only</span>
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <!-- Button -->
+      <div class="btn-row">
+        <button class="btn-download" id="dl-btn">DOWNLOAD</button>
+      </div>
+
+      <!-- Progress -->
+      <div class="progress-section" id="progress-section">
+        <div class="progress-header">
+          <span class="progress-status" id="progress-status">Initializing...</span>
+          <span class="progress-pct" id="progress-pct"></span>
+        </div>
+        <div class="progress-track">
+          <div class="progress-fill" id="progress-fill"></div>
+        </div>
+      </div>
+
+      <!-- Log -->
+      <div class="log-section" id="log-section">
+        <div class="section-label" style="margin-top:20px">output</div>
+        <div class="log-box" id="log-box"></div>
+      </div>
+
+    </div>
+  </div>
+
+  <footer class="footer">
+    powered by yt-dlp &nbsp;·&nbsp; running on localhost:5001
+  </footer>
+
+</div>
+
+<script>
+const urlInput   = document.getElementById('url-input');
+const dirInput   = document.getElementById('dir-input');
+const dlBtn      = document.getElementById('dl-btn');
+const progressSec = document.getElementById('progress-section');
+const progressFill= document.getElementById('progress-fill');
+const progressStat= document.getElementById('progress-status');
+const progressPct = document.getElementById('progress-pct');
+const logSec     = document.getElementById('log-section');
+const logBox     = document.getElementById('log-box');
+
+function log(msg, type = '') {
+  const line = document.createElement('span');
+  line.className = 'log-line' + (type ? ' ' + type : '');
+  line.textContent = msg;
+  logBox.appendChild(line);
+  logBox.scrollTop = logBox.scrollHeight;
+}
+
+function setProgress(pct, status) {
+  progressFill.classList.remove('indeterminate');
+  if (pct === null) {
+    progressFill.classList.add('indeterminate');
+    progressPct.textContent = '';
+  } else {
+    progressFill.style.width = pct + '%';
+    progressPct.textContent = pct + '%';
+  }
+  if (status) progressStat.textContent = status;
+}
+
+function getFormat() {
+  return document.querySelector('input[name="format"]:checked').value;
+}
+
+dlBtn.addEventListener('click', async () => {
+  const url = urlInput.value.trim();
+  if (!url) {
+    urlInput.focus();
+    urlInput.style.borderColor = 'var(--red)';
+    setTimeout(() => urlInput.style.borderColor = '', 1000);
+    return;
+  }
+
+  const dir    = dirInput.value.trim();
+  const format = getFormat();
+
+  // Reset UI
+  dlBtn.disabled = true;
+  logBox.innerHTML = '';
+  progressSec.classList.add('visible');
+  logSec.classList.add('visible');
+  setProgress(null, 'Connecting...');
+  log('> Starting download...', 'info');
+  log('> URL: ' + url);
+  log('> Format: ' + format);
+  if (dir) log('> Output: ' + dir);
+
+  try {
+    const res = await fetch('http://localhost:5001/download', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url, dir: dir || null, format })
+    });
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop();
+
+      for (const raw of lines) {
+        const line = raw.trim();
+        if (!line) continue;
+
+        try {
+          const msg = JSON.parse(line);
+          if (msg.type === 'progress') {
+            setProgress(msg.pct, msg.status);
+            log(msg.text);
+          } else if (msg.type === 'done') {
+            setProgress(100, 'Complete');
+            log('✓ ' + (msg.file || 'Download complete'), 'success');
+          } else if (msg.type === 'error') {
+            setProgress(0, 'Error');
+            progressFill.style.background = 'var(--red)';
+            log('✗ ' + msg.message, 'error');
+          }
+        } catch {
+          if (line) log(line);
+        }
+      }
+    }
+  } catch (err) {
+    setProgress(0, 'Failed to connect');
+    progressFill.style.background = 'var(--red)';
+    log('✗ Cannot reach backend at localhost:5001', 'error');
+    log('  Make sure server.py is running', 'error');
+  } finally {
+    dlBtn.disabled = false;
+    dlBtn.textContent = 'DOWNLOAD AGAIN';
+  }
+});
+
+// Allow Enter key
+urlInput.addEventListener('keydown', e => {
+  if (e.key === 'Enter') dlBtn.click();
+});
+</script>
+</body>
+</html>
