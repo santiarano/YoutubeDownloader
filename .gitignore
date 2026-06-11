@@ -1,0 +1,25 @@
+# macOS
+.DS_Store
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Xcode
+xcuserdata/
+DerivedData/
+*.ipa
+*.dSYM.zip
+
+# Downloaded videos (never commit media files)
+served/
+*.mp4
+*.m4a
+*.mp3
+*.webm
+*.mkv
+
+# Stray URL-path directories from old bug
+https:/
