@@ -9,6 +9,8 @@ import os
 import re
 import socket
 import subprocess
+import warnings
+warnings.filterwarnings("ignore")
 from flask import Flask, request, Response, send_from_directory
 from flask_cors import CORS
 
@@ -58,8 +60,12 @@ def download():
         out_dir = SERVE_DIR
         fmt = "mp4"
     else:
-        out_dir = data.get("dir", None) or os.path.expanduser("~/Downloads")
-        out_dir = os.path.expanduser(out_dir)
+        raw_dir = (data.get("dir", None) or "").strip()
+        # Reject anything that looks like a URL or isn't an absolute path
+        if raw_dir and not raw_dir.startswith(("http://", "https://", "www.")) and os.path.isabs(raw_dir):
+            out_dir = os.path.expanduser(raw_dir)
+        else:
+            out_dir = os.path.expanduser("~/Downloads")
 
     os.makedirs(out_dir, exist_ok=True)
 
@@ -89,12 +95,15 @@ def download():
     ip   = local_ip()
 
     def generate():
+        env = os.environ.copy()
+        env["PYTHONWARNINGS"] = "ignore"
         proc = subprocess.Popen(
             cmd,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             text=True,
-            bufsize=1
+            bufsize=1,
+            env=env
         )
 
         pct_re   = re.compile(r'\[download\]\s+([\d.]+)%')
