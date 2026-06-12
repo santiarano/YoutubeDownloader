@@ -3,665 +3,351 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>YTDL — Video Downloader</title>
+<title>YTDL</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600&family=Bebas+Neue&display=swap" rel="stylesheet">
 <style>
-  :root {
-    --bg:        #080808;
-    --surface:   #111111;
-    --border:    #222222;
-    --border-hi: #333333;
-    --amber:     #f0a500;
-    --amber-dim: #7a5200;
-    --amber-glow:rgba(240,165,0,0.08);
-    --green:     #22c55e;
-    --red:       #ef4444;
-    --muted:     #555555;
-    --text:      #e8e0d0;
-    --text-dim:  #888880;
-    --mono:      'IBM Plex Mono', monospace;
-    --display:   'Bebas Neue', sans-serif;
-  }
+:root {
+  --bg:       #080808;
+  --surface:  #111111;
+  --surface2: #161616;
+  --border:   #222222;
+  --border-hi:#333333;
+  --amber:    #f0a500;
+  --amber-dim:#7a5200;
+  --amber-glow:rgba(240,165,0,0.07);
+  --green:    #22c55e;
+  --red:      #ef4444;
+  --muted:    #555555;
+  --text:     #e8e0d0;
+  --text-dim: #888880;
+  --mono:     'IBM Plex Mono', monospace;
+  --display:  'Bebas Neue', sans-serif;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; background: var(--bg); color: var(--text); font-family: var(--mono); font-size: 13px; line-height: 1.6; overflow: hidden; }
 
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body::before { content:''; position:fixed; inset:0; background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E"); pointer-events:none; z-index:0; opacity:.5; }
 
-  html, body {
-    height: 100%;
-    background: var(--bg);
-    color: var(--text);
-    font-family: var(--mono);
-    font-size: 13px;
-    line-height: 1.6;
-    overflow-x: hidden;
-  }
+.layout { position:relative; z-index:1; display:grid; grid-template-columns:1fr 320px; height:100vh; }
 
-  /* Noise texture overlay */
-  body::before {
-    content: '';
-    position: fixed;
-    inset: 0;
-    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
-    pointer-events: none;
-    z-index: 0;
-    opacity: 0.6;
-  }
+/* ── Left column ── */
+.main { padding:28px 28px; display:flex; flex-direction:column; gap:20px; border-right:1px solid var(--border); overflow-y:auto; }
 
-  /* Scanlines */
-  body::after {
-    content: '';
-    position: fixed;
-    inset: 0;
-    background: repeating-linear-gradient(
-      0deg,
-      transparent,
-      transparent 2px,
-      rgba(0,0,0,0.03) 2px,
-      rgba(0,0,0,0.03) 4px
-    );
-    pointer-events: none;
-    z-index: 0;
-  }
+/* ── Right column ── */
+.sidebar { padding:28px 20px; display:flex; flex-direction:column; gap:16px; overflow-y:auto; }
 
-  .page {
-    position: relative;
-    z-index: 1;
-    min-height: 100vh;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: 40px 20px;
-  }
+/* ── Header ── */
+.header { display:flex; align-items:baseline; gap:12px; }
+.header-title { font-family:var(--display); font-size:48px; letter-spacing:.04em; line-height:1; }
+.header-title span { color:var(--amber); }
+.header-sub { font-size:9px; color:var(--muted); letter-spacing:.18em; text-transform:uppercase; }
 
-  /* ── Header ─────────────────────────────── */
-  .header {
-    text-align: center;
-    margin-bottom: 48px;
-    animation: fadeDown 0.6s ease both;
-  }
+/* ── Section label ── */
+.section-label { font-size:9px; letter-spacing:.2em; text-transform:uppercase; color:var(--amber); margin-bottom:8px; display:flex; align-items:center; gap:8px; }
+.section-label::after { content:''; flex:1; height:1px; background:var(--border); }
 
-  .header-eyebrow {
-    font-size: 10px;
-    letter-spacing: 0.25em;
-    text-transform: uppercase;
-    color: var(--amber);
-    margin-bottom: 8px;
-    opacity: 0.8;
-  }
+/* ── Textarea ── */
+textarea.url-input {
+  width:100%; background:var(--surface2); border:1px solid var(--border);
+  color:var(--text); font-family:var(--mono); font-size:12px;
+  padding:12px 14px; resize:none; outline:none;
+  transition:border-color .15s, box-shadow .15s; line-height:1.9;
+}
+textarea.url-input::placeholder { color:var(--muted); opacity:.4; }
+textarea.url-input:focus { border-color:var(--amber-dim); box-shadow:0 0 0 1px var(--amber-dim), inset 0 0 20px var(--amber-glow); }
 
-  .header-title {
-    font-family: var(--display);
-    font-size: clamp(56px, 10vw, 96px);
-    letter-spacing: 0.04em;
-    line-height: 0.9;
-    color: var(--text);
-    position: relative;
-  }
+/* ── Buttons ── */
+.btn { font-family:var(--display); font-size:16px; letter-spacing:.06em; padding:10px 18px; border:none; cursor:pointer; transition:transform .1s, opacity .15s; flex-shrink:0; }
+.btn:active { transform:scale(.98); }
+.btn-amber { background:var(--amber); color:#000; }
+.btn-amber:hover { background:#ffc233; }
+.btn-ghost { background:transparent; color:var(--text-dim); border:1px solid var(--border); font-size:12px; font-family:var(--mono); letter-spacing:.05em; }
+.btn-ghost:hover { border-color:var(--border-hi); color:var(--text); }
+.btn:disabled { opacity:.35; cursor:not-allowed; transform:none !important; }
+.btn-sm { font-size:13px; padding:8px 14px; }
 
-  .header-title span {
-    color: var(--amber);
-  }
+.add-row { display:flex; gap:8px; margin-top:8px; align-items:stretch; }
 
-  .header-sub {
-    margin-top: 12px;
-    font-size: 11px;
-    color: var(--muted);
-    letter-spacing: 0.1em;
-  }
+/* ── Folder row ── */
+.folder-row { display:flex; gap:8px; align-items:stretch; }
+.folder-path { flex:1; background:var(--surface2); border:1px solid var(--border); color:var(--text-dim); font-family:var(--mono); font-size:11px; padding:10px 12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0; }
 
-  /* ── Card ────────────────────────────────── */
-  .card {
-    width: 100%;
-    max-width: 640px;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    position: relative;
-    animation: fadeUp 0.6s 0.15s ease both;
-  }
+/* ── Queue list ── */
+.queue-list { display:flex; flex-direction:column; gap:5px; flex:1; overflow-y:auto; min-height:0; }
+.queue-empty { font-size:11px; color:var(--muted); padding:20px 0; text-align:center; letter-spacing:.08em; }
 
-  .card::before {
-    content: '';
-    position: absolute;
-    top: -1px; left: -1px; right: -1px;
-    height: 2px;
-    background: var(--amber);
-  }
+.q-item {
+  background:var(--surface); border:1px solid var(--border);
+  padding:9px 12px; display:grid;
+  grid-template-columns:8px 1fr auto; gap:9px; align-items:start;
+  animation:slideIn .18s ease;
+}
+@keyframes slideIn { from{opacity:0;transform:translateY(-3px)} to{opacity:1;transform:translateY(0)} }
 
-  /* corner decorations */
-  .card::after {
-    content: '';
-    position: absolute;
-    bottom: -1px; right: -1px;
-    width: 12px; height: 12px;
-    border-right: 2px solid var(--amber);
-    border-bottom: 2px solid var(--amber);
-  }
+.q-dot { width:8px; height:8px; border-radius:50%; margin-top:3px; flex-shrink:0; }
+.q-dot.pending     { background:var(--muted); }
+.q-dot.downloading { background:var(--amber); box-shadow:0 0 6px var(--amber); animation:pulse 1s ease-in-out infinite; }
+.q-dot.done        { background:var(--green); }
+.q-dot.error       { background:var(--red); }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
 
-  .card-inner {
-    padding: 32px;
-  }
+.q-body { min-width:0; }
+.q-url { font-size:10px; color:var(--text-dim); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.q-filename { font-size:11px; color:var(--text); margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.q-error { font-size:10px; color:var(--red); margin-top:2px; }
+.q-status { font-size:9px; text-transform:uppercase; letter-spacing:.07em; margin-top:3px; }
+.q-status.pending     { color:var(--muted); }
+.q-status.downloading { color:var(--amber); }
+.q-status.done        { color:var(--green); }
+.q-status.error       { color:var(--red); }
+.q-bar { margin-top:5px; height:2px; background:var(--border); }
+.q-bar-fill { height:100%; background:var(--amber); transition:width .4s; }
+.q-bar-fill.done { background:var(--green); }
 
-  /* ── Section label ───────────────────────── */
-  .section-label {
-    font-size: 9px;
-    letter-spacing: 0.2em;
-    text-transform: uppercase;
-    color: var(--amber);
-    margin-bottom: 8px;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
+.q-rm { background:none; border:none; cursor:pointer; color:var(--muted); padding:0 2px; font-size:11px; transition:color .15s; line-height:1; }
+.q-rm:hover { color:var(--red); }
 
-  .section-label::after {
-    content: '';
-    flex: 1;
-    height: 1px;
-    background: var(--border);
-  }
+/* ── Sidebar panels ── */
+.panel { background:var(--surface); border:1px solid var(--border); position:relative; }
+.panel::before { content:''; position:absolute; top:-1px; left:-1px; right:-1px; height:2px; background:var(--border-hi); }
+.panel-inner { padding:14px 16px; }
+.panel-title { font-size:9px; letter-spacing:.18em; text-transform:uppercase; color:var(--amber); margin-bottom:10px; }
 
-  /* ── Inputs ──────────────────────────────── */
-  .field {
-    margin-bottom: 24px;
-  }
+.device-row { display:flex; align-items:center; gap:8px; margin-bottom:10px; }
+.device-dot { width:6px; height:6px; border-radius:50%; background:var(--muted); flex-shrink:0; }
+.device-dot.connected { background:var(--green); box-shadow:0 0 4px var(--green); }
+.device-name { font-size:11px; color:var(--text-dim); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 
-  .field label {
-    display: block;
-    font-size: 10px;
-    letter-spacing: 0.15em;
-    text-transform: uppercase;
-    color: var(--text-dim);
-    margin-bottom: 8px;
-  }
+.sync-results { margin-top:10px; display:flex; flex-direction:column; gap:3px; max-height:160px; overflow-y:auto; }
+.sr { font-size:10px; display:flex; align-items:center; gap:6px; }
+.sr-icon { flex-shrink:0; }
+.sr-file { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; color:var(--text-dim); }
+.sr.synced  .sr-icon { color:var(--green); }
+.sr.skipped .sr-icon { color:var(--muted); }
+.sr.err     .sr-icon { color:var(--red); }
 
-  .input-wrap {
-    position: relative;
-  }
+.stat-row { display:flex; justify-content:space-between; font-size:11px; padding:3px 0; border-bottom:1px solid var(--border); }
+.stat-row:last-child { border-bottom:none; }
+.stat-lbl { color:var(--text-dim); }
+.stat-val { color:var(--amber); font-weight:600; }
 
-  .input-prefix {
-    position: absolute;
-    left: 14px;
-    top: 50%;
-    transform: translateY(-50%);
-    color: var(--amber-dim);
-    font-size: 12px;
-    pointer-events: none;
-    user-select: none;
-  }
-
-  input[type="text"] {
-    width: 100%;
-    background: var(--bg);
-    border: 1px solid var(--border);
-    color: var(--text);
-    font-family: var(--mono);
-    font-size: 13px;
-    padding: 12px 14px 12px 32px;
-    outline: none;
-    transition: border-color 0.15s, box-shadow 0.15s;
-    letter-spacing: 0.02em;
-  }
-
-  input[type="text"]::placeholder {
-    color: var(--muted);
-    opacity: 0.5;
-  }
-
-  input[type="text"]:focus {
-    border-color: var(--amber-dim);
-    box-shadow: 0 0 0 1px var(--amber-dim), inset 0 0 20px var(--amber-glow);
-  }
-
-  /* ── Format selector ─────────────────────── */
-  .format-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 8px;
-  }
-
-  .format-opt {
-    position: relative;
-  }
-
-  .format-opt input[type="radio"] {
-    position: absolute;
-    opacity: 0;
-    width: 0; height: 0;
-  }
-
-  .format-opt label {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 4px;
-    padding: 14px 8px;
-    border: 1px solid var(--border);
-    background: var(--bg);
-    cursor: pointer;
-    transition: border-color 0.15s, background 0.15s;
-    text-transform: none;
-    letter-spacing: 0;
-    text-align: center;
-  }
-
-  .format-opt label .fmt-icon {
-    font-size: 18px;
-    line-height: 1;
-  }
-
-  .format-opt label .fmt-name {
-    font-size: 11px;
-    font-weight: 600;
-    color: var(--text);
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-  }
-
-  .format-opt label .fmt-desc {
-    font-size: 9px;
-    color: var(--muted);
-    letter-spacing: 0.05em;
-  }
-
-  .format-opt input[type="radio"]:checked + label {
-    border-color: var(--amber);
-    background: var(--amber-glow);
-  }
-
-  .format-opt input[type="radio"]:checked + label .fmt-name {
-    color: var(--amber);
-  }
-
-  .format-opt label:hover {
-    border-color: var(--border-hi);
-  }
-
-  /* ── Button ──────────────────────────────── */
-  .btn-row {
-    margin-top: 28px;
-  }
-
-  .btn-download {
-    width: 100%;
-    background: var(--amber);
-    color: #000;
-    border: none;
-    font-family: var(--display);
-    font-size: 22px;
-    letter-spacing: 0.08em;
-    padding: 16px 24px;
-    cursor: pointer;
-    position: relative;
-    overflow: hidden;
-    transition: transform 0.1s, background 0.15s;
-  }
-
-  .btn-download::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background: rgba(255,255,255,0.15);
-    transform: translateX(-100%) skewX(-15deg);
-    transition: transform 0.4s ease;
-  }
-
-  .btn-download:hover::before {
-    transform: translateX(120%) skewX(-15deg);
-  }
-
-  .btn-download:hover {
-    background: #ffc233;
-  }
-
-  .btn-download:active {
-    transform: scale(0.99);
-  }
-
-  .btn-download:disabled {
-    background: var(--border-hi);
-    color: var(--muted);
-    cursor: not-allowed;
-  }
-
-  .btn-download:disabled::before { display: none; }
-
-  /* ── Progress bar ────────────────────────── */
-  .progress-section {
-    margin-top: 28px;
-    display: none;
-  }
-
-  .progress-section.visible {
-    display: block;
-  }
-
-  .progress-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 8px;
-  }
-
-  .progress-status {
-    font-size: 10px;
-    letter-spacing: 0.1em;
-    color: var(--text-dim);
-  }
-
-  .progress-pct {
-    font-size: 10px;
-    color: var(--amber);
-    font-weight: 600;
-  }
-
-  .progress-track {
-    width: 100%;
-    height: 3px;
-    background: var(--border);
-    position: relative;
-    overflow: hidden;
-  }
-
-  .progress-fill {
-    height: 100%;
-    background: var(--amber);
-    width: 0%;
-    transition: width 0.3s ease;
-    position: relative;
-  }
-
-  .progress-fill::after {
-    content: '';
-    position: absolute;
-    right: 0; top: 0; bottom: 0;
-    width: 40px;
-    background: linear-gradient(to right, transparent, rgba(255,255,255,0.4));
-  }
-
-  /* Indeterminate shimmer */
-  @keyframes shimmer {
-    0%   { transform: translateX(-100%); }
-    100% { transform: translateX(400%); }
-  }
-
-  .progress-fill.indeterminate {
-    width: 25% !important;
-    animation: shimmer 1.4s ease-in-out infinite;
-  }
-
-  /* ── Log output ──────────────────────────── */
-  .log-section {
-    margin-top: 20px;
-    display: none;
-  }
-
-  .log-section.visible {
-    display: block;
-  }
-
-  .log-box {
-    background: var(--bg);
-    border: 1px solid var(--border);
-    padding: 12px 14px;
-    font-size: 11px;
-    line-height: 1.8;
-    color: var(--text-dim);
-    max-height: 180px;
-    overflow-y: auto;
-    scrollbar-width: thin;
-    scrollbar-color: var(--border-hi) transparent;
-  }
-
-  .log-line { display: block; }
-  .log-line.success { color: var(--green); }
-  .log-line.error   { color: var(--red); }
-  .log-line.info    { color: var(--amber); }
-
-  /* ── Footer ──────────────────────────────── */
-  .footer {
-    margin-top: 32px;
-    font-size: 10px;
-    color: var(--muted);
-    letter-spacing: 0.1em;
-    text-align: center;
-    animation: fadeUp 0.6s 0.3s ease both;
-  }
-
-  .footer a {
-    color: var(--amber-dim);
-    text-decoration: none;
-  }
-
-  /* ── Animations ──────────────────────────── */
-  @keyframes fadeDown {
-    from { opacity: 0; transform: translateY(-16px); }
-    to   { opacity: 1; transform: translateY(0); }
-  }
-
-  @keyframes fadeUp {
-    from { opacity: 0; transform: translateY(16px); }
-    to   { opacity: 1; transform: translateY(0); }
-  }
-
-  /* Cursor blink on active input */
-  @keyframes blink {
-    0%, 100% { opacity: 1; }
-    50%       { opacity: 0; }
-  }
+.sidebar-footer { font-size:9px; color:var(--muted); letter-spacing:.1em; text-align:center; margin-top:auto; padding-top:4px; }
 </style>
 </head>
 <body>
-<div class="page">
+<div class="layout">
 
-  <header class="header">
-    <div class="header-eyebrow">// local downloader</div>
-    <h1 class="header-title">YT<span>DL</span></h1>
-    <p class="header-sub">paste url &nbsp;·&nbsp; pick format &nbsp;·&nbsp; pull</p>
-  </header>
+  <!-- ── Main ── -->
+  <div class="main">
 
-  <div class="card">
-    <div class="card-inner">
-
-      <!-- URL -->
-      <div class="field">
-        <div class="section-label">source</div>
-        <label for="url-input">Video URL</label>
-        <div class="input-wrap">
-          <span class="input-prefix">▶</span>
-          <input type="text" id="url-input"
-            placeholder="https://www.youtube.com/watch?v=..."
-            autocomplete="off" spellcheck="false">
-        </div>
-      </div>
-
-      <!-- Output dir -->
-      <div class="field">
-        <label for="dir-input">Output Directory <span style="color:var(--muted)">(optional)</span></label>
-        <div class="input-wrap">
-          <span class="input-prefix">~</span>
-          <input type="text" id="dir-input"
-            placeholder="/Users/you/Downloads"
-            autocomplete="off" spellcheck="false">
-        </div>
-      </div>
-
-      <!-- Format -->
-      <div class="field">
-        <div class="section-label">format</div>
-        <div class="format-grid">
-          <div class="format-opt">
-            <input type="radio" name="format" id="fmt-best" value="best" checked>
-            <label for="fmt-best">
-              <span class="fmt-icon">◈</span>
-              <span class="fmt-name">Best</span>
-              <span class="fmt-desc">highest quality</span>
-            </label>
-          </div>
-          <div class="format-opt">
-            <input type="radio" name="format" id="fmt-mp4" value="mp4">
-            <label for="fmt-mp4">
-              <span class="fmt-icon">▣</span>
-              <span class="fmt-name">MP4</span>
-              <span class="fmt-desc">video / h.264</span>
-            </label>
-          </div>
-          <div class="format-opt">
-            <input type="radio" name="format" id="fmt-mp3" value="mp3">
-            <label for="fmt-mp3">
-              <span class="fmt-icon">♫</span>
-              <span class="fmt-name">MP3</span>
-              <span class="fmt-desc">audio only</span>
-            </label>
-          </div>
-        </div>
-      </div>
-
-      <!-- Button -->
-      <div class="btn-row">
-        <button class="btn-download" id="dl-btn">DOWNLOAD</button>
-      </div>
-
-      <!-- Progress -->
-      <div class="progress-section" id="progress-section">
-        <div class="progress-header">
-          <span class="progress-status" id="progress-status">Initializing...</span>
-          <span class="progress-pct" id="progress-pct"></span>
-        </div>
-        <div class="progress-track">
-          <div class="progress-fill" id="progress-fill"></div>
-        </div>
-      </div>
-
-      <!-- Log -->
-      <div class="log-section" id="log-section">
-        <div class="section-label" style="margin-top:20px">output</div>
-        <div class="log-box" id="log-box"></div>
-      </div>
-
+    <div class="header">
+      <h1 class="header-title">YT<span>DL</span></h1>
+      <span class="header-sub">H.264 · 640×400 · Ray-Ban Display</span>
     </div>
+
+    <!-- Add URLs -->
+    <div>
+      <div class="section-label">add to queue</div>
+      <textarea class="url-input" id="url-input" rows="3"
+        placeholder="Paste one or more YouTube URLs (one per line)…"></textarea>
+      <div class="add-row">
+        <button class="btn btn-amber" id="add-btn">ADD TO QUEUE</button>
+        <button class="btn btn-ghost btn-sm" id="clear-btn">CLEAR DONE</button>
+      </div>
+    </div>
+
+    <!-- Folder -->
+    <div>
+      <div class="section-label">download folder</div>
+      <div class="folder-row">
+        <div class="folder-path" id="folder-path">~/Downloads</div>
+        <button class="btn btn-ghost btn-sm" id="browse-btn">BROWSE</button>
+      </div>
+    </div>
+
+    <!-- Queue -->
+    <div style="display:flex;flex-direction:column;flex:1;min-height:0">
+      <div class="section-label">queue</div>
+      <div class="queue-list" id="queue-list">
+        <div class="queue-empty">No items — paste URLs above and hit Add</div>
+      </div>
+    </div>
+
   </div>
 
-  <footer class="footer">
-    powered by yt-dlp &nbsp;·&nbsp; running on localhost:5001
-  </footer>
+  <!-- ── Sidebar ── -->
+  <div class="sidebar">
 
+    <!-- iPhone sync -->
+    <div class="panel">
+      <div class="panel-inner">
+        <div class="panel-title">iPhone sync → LiftLens</div>
+        <div class="device-row">
+          <div class="device-dot" id="device-dot"></div>
+          <div class="device-name" id="device-name">Connect iPhone via USB</div>
+        </div>
+        <button class="btn btn-amber" id="sync-btn" style="width:100%;font-size:15px">SYNC NEW FILES</button>
+        <div class="sync-results" id="sync-results"></div>
+      </div>
+    </div>
+
+    <!-- Stats -->
+    <div class="panel">
+      <div class="panel-inner">
+        <div class="panel-title">session</div>
+        <div class="stat-row"><span class="stat-lbl">In queue</span><span class="stat-val" id="s-queued">0</span></div>
+        <div class="stat-row"><span class="stat-lbl">Done</span><span class="stat-val" id="s-done">0</span></div>
+        <div class="stat-row"><span class="stat-lbl">Errors</span><span class="stat-val" id="s-errors">0</span></div>
+        <div class="stat-row"><span class="stat-lbl">Last sync</span><span class="stat-val" id="s-synced">—</span></div>
+      </div>
+    </div>
+
+    <!-- Encoding spec -->
+    <div class="panel">
+      <div class="panel-inner">
+        <div class="panel-title">target format</div>
+        <div class="stat-row"><span class="stat-lbl">Codec</span><span class="stat-val">H.264</span></div>
+        <div class="stat-row"><span class="stat-lbl">Resolution</span><span class="stat-val">≤640×400</span></div>
+        <div class="stat-row"><span class="stat-lbl">Profile</span><span class="stat-val">Main 4.0</span></div>
+        <div class="stat-row"><span class="stat-lbl">Container</span><span class="stat-val">MP4</span></div>
+        <div class="stat-row"><span class="stat-lbl">Audio</span><span class="stat-val">AAC 128k</span></div>
+      </div>
+    </div>
+
+    <div class="sidebar-footer">yt-dlp · ffmpeg · pymobiledevice3</div>
+
+  </div>
 </div>
 
 <script>
-const urlInput   = document.getElementById('url-input');
-const dirInput   = document.getElementById('dir-input');
-const dlBtn      = document.getElementById('dl-btn');
-const progressSec = document.getElementById('progress-section');
-const progressFill= document.getElementById('progress-fill');
-const progressStat= document.getElementById('progress-status');
-const progressPct = document.getElementById('progress-pct');
-const logSec     = document.getElementById('log-section');
-const logBox     = document.getElementById('log-box');
+const $ = id => document.getElementById(id);
+let qItems = [], dlDir = '';
 
-function log(msg, type = '') {
-  const line = document.createElement('span');
-  line.className = 'log-line' + (type ? ' ' + type : '');
-  line.textContent = msg;
-  logBox.appendChild(line);
-  logBox.scrollTop = logBox.scrollHeight;
+// ── SSE ───────────────────────────────────────────────────────────────────────
+function sse() {
+  const es = new EventSource('/queue/stream');
+  es.onmessage = e => {
+    try {
+      const msg = JSON.parse(e.data);
+      if (msg.type === 'queue') { qItems = msg.items; dlDir = msg.download_dir; render(); }
+    } catch {}
+  };
+  es.onerror = () => setTimeout(sse, 2000);
 }
+sse();
 
-function setProgress(pct, status) {
-  progressFill.classList.remove('indeterminate');
-  if (pct === null) {
-    progressFill.classList.add('indeterminate');
-    progressPct.textContent = '';
+// ── Render queue ──────────────────────────────────────────────────────────────
+function render() {
+  const list = $('queue-list');
+  $('folder-path').textContent = dlDir;
+
+  if (!qItems.length) {
+    list.innerHTML = '<div class="queue-empty">No items — paste URLs above and hit Add</div>';
   } else {
-    progressFill.style.width = pct + '%';
-    progressPct.textContent = pct + '%';
+    list.innerHTML = qItems.map(it => {
+      const p = it.progress || 0;
+      const lbl = {pending:'Pending', downloading:`Downloading ${p}%`, done:'Done', error:'Error'}[it.status] || it.status;
+      return `<div class="q-item" id="qi-${it.id}">
+        <div class="q-dot ${it.status}"></div>
+        <div class="q-body">
+          <div class="q-url" title="${x(it.url)}">${x(it.url)}</div>
+          ${it.filename ? `<div class="q-filename">${x(it.filename)}</div>` : ''}
+          ${it.error    ? `<div class="q-error">${x(it.error)}</div>` : ''}
+          <div class="q-status ${it.status}">${lbl}</div>
+          ${it.status !== 'pending' && it.status !== 'error' ? `
+          <div class="q-bar"><div class="q-bar-fill ${it.status==='done'?'done':''}" style="width:${p}%"></div></div>` : ''}
+        </div>
+        <div>${it.status !== 'downloading' ? `<button class="q-rm" onclick="rm('${it.id}')">✕</button>` : ''}</div>
+      </div>`;
+    }).join('');
   }
-  if (status) progressStat.textContent = status;
+
+  // stats
+  const c = {q:0,d:0,e:0};
+  qItems.forEach(i => {
+    if (i.status==='pending'||i.status==='downloading') c.q++;
+    if (i.status==='done')  c.d++;
+    if (i.status==='error') c.e++;
+  });
+  $('s-queued').textContent = c.q;
+  $('s-done').textContent   = c.d;
+  $('s-errors').textContent = c.e;
 }
 
-function getFormat() {
-  return document.querySelector('input[name="format"]:checked').value;
-}
+// ── Queue actions ─────────────────────────────────────────────────────────────
+$('add-btn').addEventListener('click', async () => {
+  const raw = $('url-input').value.trim();
+  if (!raw) return;
+  await post('/queue/add', {urls: raw});
+  $('url-input').value = '';
+});
 
-dlBtn.addEventListener('click', async () => {
-  const url = urlInput.value.trim();
-  if (!url) {
-    urlInput.focus();
-    urlInput.style.borderColor = 'var(--red)';
-    setTimeout(() => urlInput.style.borderColor = '', 1000);
-    return;
-  }
+$('url-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) $('add-btn').click();
+});
 
-  const dir    = dirInput.value.trim();
-  const format = getFormat();
+$('clear-btn').addEventListener('click', () => post('/queue/clear', {}));
 
-  // Reset UI
-  dlBtn.disabled = true;
-  logBox.innerHTML = '';
-  progressSec.classList.add('visible');
-  logSec.classList.add('visible');
-  setProgress(null, 'Connecting...');
-  log('> Starting download...', 'info');
-  log('> URL: ' + url);
-  log('> Format: ' + format);
-  if (dir) log('> Output: ' + dir);
+async function rm(id) { await fetch(`/queue/${id}`, {method:'DELETE'}); }
 
-  try {
-    const res = await fetch('http://localhost:5001/download', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ url, dir: dir || null, format })
-    });
+// ── Browse ────────────────────────────────────────────────────────────────────
+$('browse-btn').addEventListener('click', async () => {
+  const r = await post('/browse', {});
+  if (r.path) await post('/set-dir', {path: r.path});
+});
 
-    const reader = res.body.getReader();
-    const decoder = new TextDecoder();
-    let buffer = '';
+// ── iPhone sync ───────────────────────────────────────────────────────────────
+$('sync-btn').addEventListener('click', async () => {
+  $('sync-btn').disabled = true;
+  $('sync-btn').textContent = 'SYNCING…';
+  $('sync-results').innerHTML = '';
+  await post('/sync-iphone', {});
+  pollSync();
+});
 
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      buffer += decoder.decode(value, { stream: true });
-      const lines = buffer.split('\n');
-      buffer = lines.pop();
+function pollSync() {
+  fetch('/sync-iphone/status').then(r=>r.json()).then(s => {
+    if (s.running) { setTimeout(pollSync, 800); return; }
 
-      for (const raw of lines) {
-        const line = raw.trim();
-        if (!line) continue;
+    $('sync-btn').disabled = false;
+    $('sync-btn').textContent = 'SYNC NEW FILES';
 
-        try {
-          const msg = JSON.parse(line);
-          if (msg.type === 'progress') {
-            setProgress(msg.pct, msg.status);
-            log(msg.text);
-          } else if (msg.type === 'done') {
-            setProgress(100, 'Complete');
-            log('✓ ' + (msg.file || 'Download complete'), 'success');
-          } else if (msg.type === 'error') {
-            setProgress(0, 'Error');
-            progressFill.style.background = 'var(--red)';
-            log('✗ ' + msg.message, 'error');
-          }
-        } catch {
-          if (line) log(line);
-        }
-      }
+    if (s.error) {
+      $('sync-results').innerHTML = `<div class="sr err"><span class="sr-icon">✗</span><span class="sr-file">${x(s.error)}</span></div>`;
+      return;
     }
-  } catch (err) {
-    setProgress(0, 'Failed to connect');
-    progressFill.style.background = 'var(--red)';
-    log('✗ Cannot reach backend at localhost:5001', 'error');
-    log('  Make sure server.py is running', 'error');
-  } finally {
-    dlBtn.disabled = false;
-    dlBtn.textContent = 'DOWNLOAD AGAIN';
-  }
-});
 
-// Allow Enter key
-urlInput.addEventListener('keydown', e => {
-  if (e.key === 'Enter') dlBtn.click();
-});
+    let newFiles = 0;
+    $('sync-results').innerHTML = (s.results||[]).map(r => {
+      const cls = r.status==='synced' ? 'synced' : r.status==='error' ? 'err' : 'skipped';
+      const icon = r.status==='synced' ? '✓' : r.status==='error' ? '✗' : '·';
+      if (r.status==='synced') newFiles++;
+      return `<div class="sr ${cls}"><span class="sr-icon">${icon}</span><span class="sr-file" title="${x(r.file)}">${x(r.file)}</span></div>`;
+    }).join('');
+    $('s-synced').textContent = `${newFiles} new`;
+    if (s.device) { $('device-name').textContent = s.device; $('device-dot').className='device-dot connected'; }
+  }).catch(() => {
+    $('sync-btn').disabled = false;
+    $('sync-btn').textContent = 'SYNC NEW FILES';
+  });
+}
+
+// Periodic device check
+setInterval(() => {
+  fetch('/sync-iphone/status').then(r=>r.json()).then(s=>{
+    if (s.device) { $('device-name').textContent=s.device; $('device-dot').className='device-dot connected'; }
+  }).catch(()=>{});
+}, 12000);
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+async function post(url, body) {
+  const r = await fetch(url, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});
+  return r.json();
+}
+function x(s) {
+  return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
 </script>
 </body>
 </html>
