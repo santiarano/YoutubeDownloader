@@ -117,7 +117,9 @@ textarea.url-input:focus { border-color:var(--amber-dim); box-shadow:0 0 0 1px v
 .device-row { display:flex; align-items:center; gap:8px; margin-bottom:10px; }
 .device-dot { width:6px; height:6px; border-radius:50%; background:var(--muted); flex-shrink:0; }
 .device-dot.connected { background:var(--green); box-shadow:0 0 4px var(--green); }
-.device-name { font-size:11px; color:var(--text-dim); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.device-name { font-size:11px; color:var(--text-dim); }
+.addr-row { display:flex; gap:6px; align-items:stretch; }
+.addr { flex:1; background:var(--bg); border:1px solid var(--border-hi); color:var(--amber); font-family:var(--mono); font-size:12px; padding:8px 10px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 
 .sync-results { margin-top:10px; display:flex; flex-direction:column; gap:3px; max-height:160px; overflow-y:auto; }
 .sr { font-size:10px; display:flex; align-items:center; gap:6px; }
@@ -179,16 +181,18 @@ textarea.url-input:focus { border-color:var(--amber-dim); box-shadow:0 0 0 1px v
   <!-- ── Sidebar ── -->
   <div class="sidebar">
 
-    <!-- iPhone sync -->
+    <!-- iPhone connection -->
     <div class="panel">
       <div class="panel-inner">
-        <div class="panel-title">iPhone sync → LiftLens</div>
-        <div class="device-row">
-          <div class="device-dot" id="device-dot"></div>
-          <div class="device-name" id="device-name">Connect iPhone via USB</div>
+        <div class="panel-title">iPhone — pull over Wi-Fi</div>
+        <div class="device-name" style="margin-bottom:8px">Enter this address in the LiftLens app, then tap <b style="color:var(--amber)">Sync from Mac</b>:</div>
+        <div class="addr-row">
+          <code class="addr" id="lan-addr">…</code>
+          <button class="btn btn-ghost btn-sm" id="copy-btn">COPY</button>
         </div>
-        <button class="btn btn-amber" id="sync-btn" style="width:100%;font-size:15px">SYNC NEW FILES</button>
-        <div class="sync-results" id="sync-results"></div>
+        <div class="device-name" style="margin-top:10px;font-size:10px;line-height:1.6">
+          The phone downloads only files it doesn't already have. Same Wi-Fi required.
+        </div>
       </div>
     </div>
 
@@ -199,7 +203,6 @@ textarea.url-input:focus { border-color:var(--amber-dim); box-shadow:0 0 0 1px v
         <div class="stat-row"><span class="stat-lbl">In queue</span><span class="stat-val" id="s-queued">0</span></div>
         <div class="stat-row"><span class="stat-lbl">Done</span><span class="stat-val" id="s-done">0</span></div>
         <div class="stat-row"><span class="stat-lbl">Errors</span><span class="stat-val" id="s-errors">0</span></div>
-        <div class="stat-row"><span class="stat-lbl">Last sync</span><span class="stat-val" id="s-synced">—</span></div>
       </div>
     </div>
 
@@ -207,15 +210,15 @@ textarea.url-input:focus { border-color:var(--amber-dim); box-shadow:0 0 0 1px v
     <div class="panel">
       <div class="panel-inner">
         <div class="panel-title">target format</div>
-        <div class="stat-row"><span class="stat-lbl">Codec</span><span class="stat-val">H.264</span></div>
+        <div class="stat-row"><span class="stat-lbl">Codec</span><span class="stat-val">H.264 (avc1)</span></div>
         <div class="stat-row"><span class="stat-lbl">Resolution</span><span class="stat-val">≤640×400</span></div>
-        <div class="stat-row"><span class="stat-lbl">Profile</span><span class="stat-val">Main 4.0</span></div>
-        <div class="stat-row"><span class="stat-lbl">Container</span><span class="stat-val">MP4</span></div>
-        <div class="stat-row"><span class="stat-lbl">Audio</span><span class="stat-val">AAC 128k</span></div>
+        <div class="stat-row"><span class="stat-lbl">Container</span><span class="stat-val">MP4 faststart</span></div>
+        <div class="stat-row"><span class="stat-lbl">Audio</span><span class="stat-val">AAC</span></div>
+        <div class="stat-row"><span class="stat-lbl">Method</span><span class="stat-val">remux (fast)</span></div>
       </div>
     </div>
 
-    <div class="sidebar-footer">yt-dlp · ffmpeg · pymobiledevice3</div>
+    <div class="sidebar-footer">yt-dlp · ffmpeg · LAN sync</div>
 
   </div>
 </div>
@@ -297,48 +300,20 @@ $('browse-btn').addEventListener('click', async () => {
   if (r.path) await post('/set-dir', {path: r.path});
 });
 
-// ── iPhone sync ───────────────────────────────────────────────────────────────
-$('sync-btn').addEventListener('click', async () => {
-  $('sync-btn').disabled = true;
-  $('sync-btn').textContent = 'SYNCING…';
-  $('sync-results').innerHTML = '';
-  await post('/sync-iphone', {});
-  pollSync();
-});
+// ── iPhone LAN address ────────────────────────────────────────────────────────
+let lanURL = '';
+fetch('/info').then(r=>r.json()).then(i => {
+  lanURL = `http://${i.ip}:${i.port}`;
+  $('lan-addr').textContent = lanURL;
+}).catch(() => { $('lan-addr').textContent = 'unavailable'; });
 
-function pollSync() {
-  fetch('/sync-iphone/status').then(r=>r.json()).then(s => {
-    if (s.running) { setTimeout(pollSync, 800); return; }
-
-    $('sync-btn').disabled = false;
-    $('sync-btn').textContent = 'SYNC NEW FILES';
-
-    if (s.error) {
-      $('sync-results').innerHTML = `<div class="sr err"><span class="sr-icon">✗</span><span class="sr-file">${x(s.error)}</span></div>`;
-      return;
-    }
-
-    let newFiles = 0;
-    $('sync-results').innerHTML = (s.results||[]).map(r => {
-      const cls = r.status==='synced' ? 'synced' : r.status==='error' ? 'err' : 'skipped';
-      const icon = r.status==='synced' ? '✓' : r.status==='error' ? '✗' : '·';
-      if (r.status==='synced') newFiles++;
-      return `<div class="sr ${cls}"><span class="sr-icon">${icon}</span><span class="sr-file" title="${x(r.file)}">${x(r.file)}</span></div>`;
-    }).join('');
-    $('s-synced').textContent = `${newFiles} new`;
-    if (s.device) { $('device-name').textContent = s.device; $('device-dot').className='device-dot connected'; }
-  }).catch(() => {
-    $('sync-btn').disabled = false;
-    $('sync-btn').textContent = 'SYNC NEW FILES';
+$('copy-btn').addEventListener('click', () => {
+  if (!lanURL) return;
+  navigator.clipboard.writeText(lanURL).then(() => {
+    $('copy-btn').textContent = 'COPIED';
+    setTimeout(() => $('copy-btn').textContent = 'COPY', 1200);
   });
-}
-
-// Periodic device check
-setInterval(() => {
-  fetch('/sync-iphone/status').then(r=>r.json()).then(s=>{
-    if (s.device) { $('device-name').textContent=s.device; $('device-dot').className='device-dot connected'; }
-  }).catch(()=>{});
-}, 12000);
+});
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 async function post(url, body) {
