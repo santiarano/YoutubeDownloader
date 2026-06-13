@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-YTDL backend — queue-based YouTube downloader.
+YoutubeDownloader backend — queue-based YouTube downloader.
 H.264/AAC MP4, ≤640×400 (Meta Ray-Ban Display).
 The iPhone app pulls finished files from this server over Wi-Fi (LAN).
 Run: python3 server.py
@@ -24,7 +24,7 @@ CORS(app)
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 YTDLP      = os.path.expanduser("~/Library/Python/3.13/bin/yt-dlp")
-STATE_FILE = os.path.expanduser("~/.ytdl_state.json")
+STATE_FILE = os.path.expanduser("~/.youtubedownloader_state.json")
 VIDEO_EXTS = (".mp4", ".m4v", ".mov")
 
 # ── Persisted state ───────────────────────────────────────────────────────────
@@ -287,7 +287,7 @@ def serve_video(filename):
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5001))
-    print(f"  YTDL server  → http://localhost:{port}")
+    print(f"  YoutubeDownloader server  → http://localhost:{port}")
     print(f"  LAN address  → http://{local_ip()}:{port}   (enter this in the iPhone app)")
     print(f"  Download dir → {DOWNLOAD_DIR}")
     app.run(host="0.0.0.0", port=port, debug=False, threaded=True)

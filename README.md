@@ -1,4 +1,4 @@
-# YTDL
+# YoutubeDownloader
 
 A queue-based YouTube downloader tuned for the **Meta Ray-Ban Display** glasses, with a polished dark web UI, a Flask backend, a standalone macOS app wrapper, and **wireless sync** to the companion LiftLens iPhone app.
 
@@ -19,7 +19,7 @@ Built around [yt-dlp](https://github.com/yt-dlp/yt-dlp) + ffmpeg.
 ## Structure
 
 ```
-YTDL/
+YoutubeDownloader/
 ├── server.py          # Flask backend — queue, yt-dlp worker, file server
 ├── index.html         # Web UI — queue, folder picker, LAN address for phone
 └── YTDLApp/           # Standalone macOS app (SwiftUI wrapper around the server)
@@ -43,7 +43,7 @@ YTDL/
 
 ```bash
 pip install flask flask-cors yt-dlp
-cd YTDL
+cd YoutubeDownloader
 python3 server.py        # → http://localhost:5001
 ```
 

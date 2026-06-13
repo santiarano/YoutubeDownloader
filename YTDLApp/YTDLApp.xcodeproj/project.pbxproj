@@ -168,10 +168,10 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_NSHumanReadableDescription = "YouTube Video Downloader";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
-				INFOPLIST_KEY_CFBundleDisplayName = "YTDL";
+				INFOPLIST_KEY_CFBundleDisplayName = "YoutubeDownloader";
 				MACOSX_DEPLOYMENT_TARGET = 13.0;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.santiarano.ytdl;
+				PRODUCT_BUNDLE_IDENTIFIER = com.santiarano.youtubedownloader;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
@@ -193,10 +193,10 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_NSHumanReadableDescription = "YouTube Video Downloader";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
-				INFOPLIST_KEY_CFBundleDisplayName = "YTDL";
+				INFOPLIST_KEY_CFBundleDisplayName = "YoutubeDownloader";
 				MACOSX_DEPLOYMENT_TARGET = 13.0;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.santiarano.ytdl;
+				PRODUCT_BUNDLE_IDENTIFIER = com.santiarano.youtubedownloader;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;

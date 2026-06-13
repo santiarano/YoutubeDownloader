@@ -39,7 +39,7 @@ final class ServerManager: ObservableObject {
       throw AppError.missingResource("server.py")
     }
 
-    let tmpDir = FileManager.default.temporaryDirectory.appendingPathComponent("YTDLApp")
+    let tmpDir = FileManager.default.temporaryDirectory.appendingPathComponent("YoutubeDownloaderApp")
     try? FileManager.default.createDirectory(at: tmpDir, withIntermediateDirectories: true)
 
     for (name, ext) in [("server", "py"), ("index", "html")] {
